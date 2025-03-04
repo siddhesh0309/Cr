@@ -1,0 +1,35 @@
+import pandas as pd
+
+# File paths (Update with actual paths)
+old_file_path = "last_year_data.xlsm"  # Last year's sorted XLSM file
+new_file_path = "current_data.xlsx"  # New XLSX file to process
+output_file = "processed_file.xlsm"  # Final output file should be XLSM
+
+# Load both old and new files from the "Account Holder" sheet
+df_old = pd.read_excel(old_file_path, sheet_name="Account Holder", engine="openpyxl")
+df_new = pd.read_excel(new_file_path, sheet_name="Account Holder", engine="openpyxl")
+
+# Ensure necessary columns exist in the new file
+columns_to_update = ["City_Town", "Postal_Code", "State_Code", "Country_Code"]
+for col in columns_to_update:
+    if col not in df_new.columns:
+        df_new[col] = None
+
+# Step 1: Merge new file with old file to find exact matches (Keeps all duplicates)
+df_updated = df_new.merge(
+    df_old[["Customer ID", "Address"] + columns_to_update], 
+    on=["Customer ID", "Address"], how="left", suffixes=("", "_old")
+)
+
+# Step 2: Update only the 4 columns (Keep all other data unchanged, no extraction)
+for col in columns_to_update:
+    df_updated[col] = df_updated[col + "_old"].combine_first(df_updated[col])
+
+# Step 3: Drop extra "_old" columns
+df_updated.drop(columns=[col + "_old" for col in columns_to_update], inplace=True)
+
+# Step 4: Save the processed file as XLSM (keeping macros intact)
+with pd.ExcelWriter(output_file, engine="openpyxl") as writer:
+    df_updated.to_excel(writer, sheet_name="Account Holder", index=False)
+
+print(f"✅ Processed file saved as {output_file} in 'Account Holder' sheet.")
